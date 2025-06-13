@@ -1,0 +1,96 @@
+---
+- name: Install docker on ubuntu
+  hosts: all
+  become: true
+  vars:
+    container_count: 4
+    default_container_name: docker
+    default_container_image: ubuntu
+    default_container_command: sleep 1d
+
+  tasks:
+    - name: Install aptitude
+      apt:
+        name: aptitude
+        state: latest
+        update_cache: true
+
+    - name: Install required system packages
+      apt:
+        pkg:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - python3-pip
+          - virtualenv
+          - python3-setuptools
+        state: latest
+        update_cache: true
+
+    - name: Add Docker GPG apt Key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker Repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Update apt and install docker-ce
+      apt:
+        name: docker-ce
+        state: latest
+        update_cache: true
+
+    - name: Enable and start Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+
+    - name: Add current user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
+- name: Install AWS CLI v2 on target machines
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Install dependencies
+      apt:
+        name:
+          - unzip
+          - curl
+        state: present
+        update_cache: yes
+
+    - name: Download AWS CLI v2 installer
+      get_url:
+        url: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+        dest: /tmp/awscliv2.zip
+
+    - name: Unzip AWS CLI v2 installer
+      unarchive:
+        src: /tmp/awscliv2.zip
+        dest: /tmp
+        remote_src: yes
+
+    - name: Run AWS CLI installer
+      shell: /tmp/aws/install
+      args:
+        creates: /usr/local/bin/aws
+
+    - name: Verify AWS CLI installation
+      command: aws --version
+      register: aws_cli_version
+      changed_when: false
+
+    - name: Show installed AWS CLI version
+      debug:
+        msg: "Installed AWS CLI version: {{ aws_cli_version.stdout }}"
